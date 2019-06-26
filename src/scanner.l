@@ -91,6 +91,11 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 		yylval.vname->array_num = atoi(&yytext[lb]);
         return ARRAY_NAME;
     }
+[a-zA-Z]+([a-zA-Z0-9_]*)\[[a-zA-Z]+[a-zA-Z0-9_]*\] {
+		yylval.vname = (struct v_name*) malloc(sizeof(struct v_name));
+		yylval.vname->name = strdup(yytext);
+		return ARRAY_VAR_NAME;		
+	}
 -?([0-9]+|([0-9]*\.[0-9]+)([eE][-+]?[0-9]+)?) {
         yylval.dval = atof(yytext);
         return NUMBER;
