@@ -63,11 +63,12 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
         return TYPE;
     }
 [a-zA-Z]+([a-zA-Z0-9_]*)                {
-        yylval.symb = new_symtab(yytext);
-		fprintf(stderr, "In lex: new NAME: %s\n", yylval.symb->name);
+		yylval.symb = (struct symtab*) malloc(sizeof(struct symtab));
+		yylval.symb->name = strdup(yytext);
+		yylval.symb->value = 0;
         return NAME;
     }
-[a-zA-Z]+([a-zA-Z0-9_]*)\[[1-9]+[0-9]*\] {
+[a-zA-Z]+([a-zA-Z0-9_]*)\[[0-9]+\] {
 		int lb, rb;
 		for(lb = 0; lb < strlen(yytext); lb++){
 			if(yytext[lb] == '['){
@@ -82,41 +83,19 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 				break;
 			}
 		}
-        yylval.vname->name = strdup(yytext);
+		char this_array_name[VAR_NAME_MAX];
+		sprintf(this_array_name, "%s[0]", yytext);
+		struct symtab *sp = check_symtab(this_array_name);
+		yylval.vname = (struct v_name*) malloc(sizeof(struct v_name));
+		yylval.vname->name = strdup(yytext);
 		yylval.vname->array_num = atoi(&yytext[lb]);
-		for(int array_i = 0; array_i < yylval.vname->array_num; array_i ++){
-			char this_array_name[VAR_NAME_MAX];
-			sprintf(this_array_name, "%s[%d]", yylval.vname->name, array_i);
-			fprintf(stderr, "In lex: new array name: %s\n", this_array_name);
-			new_symtab(this_array_name);
-		}
         return ARRAY_NAME;
     }
 -?([0-9]+|([0-9]*\.[0-9]+)([eE][-+]?[0-9]+)?) {
         yylval.dval = atof(yytext);
         return NUMBER;
     }
- /*{int_regex}+                            {return 6;}
-{float_regex}                           {return 7;}
-([0-9]+|{float_regex})([eE][-+]?[0-9]+) {return 8;}
-*/
 \".+\"                                  {return 9;}
 
 .                                       {return 39;}   /*lexical error */ 
 %%
-/*
-int main()
-{
-    int i;
- 
-    while((i=yylex()) != 38){
-        if(i == 39)
-            printf("\033[31mSyntax Error: return value is %d, token is %s, type is %s\033[0m\n", i, yytext, token_type[i]);
-        else 
-            printf("return value is %d, token is %s, type is %s\n", i, yytext, token_type[i]);
-    }
-
-    printf("End of file\n");
-}
-*/
-
