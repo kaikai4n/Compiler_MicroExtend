@@ -32,7 +32,7 @@ int line_count = 1;
 %type <dval> mul_expression;
 
 %%
-start:	PROGRAM NAME Begin statement_list End	{ printf("Finish Program with name: %s\n", $2->name); }
+start:	PROGRAM NAME Begin statement_list End	{ fprintf(stderr, "Finish Program with name: %s\n", $2->name); }
      ; 
 
 statement_list:	statement ';'
@@ -45,10 +45,13 @@ statement:	declare_statement
 
 declare_statement: DECLARE v_list AS TYPE	{
 		for(int i = 0; i < my_vlist.total_num; i++){
-			if(my_vlist.table[i].array_num == 0)
-				printf("Declare %s, %s\n", my_vlist.table[i].name, num_to_type[$4-1]);
-			else
-				printf("Declare %s, %s_array, %d\n", my_vlist.table[i].name, num_to_type[$4-1], my_vlist.table[i].array_num);
+			if(my_vlist.table[i].array_num == 0){
+				generate(3, "Declare", my_vlist.table[i].name, num_to_type[$4-1], NULL);
+			}else{
+				char name_3[100];
+				sprintf(name_3, "%d", my_vlist.table[i].array_num);
+				generate(4, "Declare", my_vlist.table[i].name, num_to_type[$4-1], name_3);
+			}
 		}
 		reset_vlist();
 	}
@@ -139,4 +142,21 @@ void insert_vlist(struct v_name *vname){
 	my_vlist.table[i_now].name = vname->name;
 	my_vlist.table[i_now].array_num = vname->array_num;
 	my_vlist.total_num ++;
+}
+
+void generate(int length, char *instruction, char *name_1, char *name_2, char *name_3){
+	if(length < 1 || length > 4){
+		yyerror("Generate function error, input length should between 1 and 4\n");
+	}else if(length == 1){
+		// This is label
+		printf("%s:", instruction);
+	}else{
+		if(length == 2){
+			printf("\t%s %s\n", instruction, name_1);
+		}else if(length == 3){
+			printf("\t%s %s, %s\n", instruction, name_1, name_2);
+		}else if(length == 4){
+			printf("\t%s %s, %s, %s\n", instruction, name_1, name_2, name_3);
+		}
+	}
 }
