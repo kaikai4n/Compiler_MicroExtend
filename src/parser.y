@@ -33,6 +33,7 @@ int register_status[REGISTER_MAX+1] = {0};
 %type <symb> expression;
 %type <symb> mul_expression;
 %type <symb> primary;
+%type <symb> name_or_array_name;
 
 %%
 start:	PROGRAM NAME Begin statement_list End	{ fprintf(stderr, "Finish Program with name: %s\n", $2->name); }
@@ -49,12 +50,23 @@ statement:	declare_statement
 
 declare_statement: DECLARE v_list AS TYPE	{
 		for(int i = 0; i < my_vlist.total_num; i++){
-			if(my_vlist.table[i].array_num == 0){
+			if(my_vlist.table[i].array_num == -1){
 				generate(3, "Declare", my_vlist.table[i].name, num_to_type[$4-1], NULL);
+				new_symtab(my_vlist.table[i].name);
 			}else{
+				if(my_vlist.table[i].array_num < 2){
+					yyerror("Array size must > 1\n");
+					exit(-1);
+				}
 				char name_3[VAR_NAME_MAX];
 				sprintf(name_3, "%d", my_vlist.table[i].array_num);
 				generate(4, "Declare", my_vlist.table[i].name, num_to_type[$4-1], name_3);
+				
+				char this_array_name[VAR_NAME_MAX];
+				for(int array_i = 0; array_i < my_vlist.table[i].array_num; array_i ++){
+					sprintf(this_array_name, "%s[%d]", my_vlist.table[i].name, array_i);
+					new_symtab(this_array_name);
+				}
 			}
 		}
 		reset_vlist();
@@ -72,13 +84,14 @@ v_name: ARRAY_NAME	{
 				$$ = $1;	
 			}
 	  |	NAME	{
-				$$->name = $1->name;
-				$$->array_num = 0;
+				$$->name = strdup($1->name);
+				$$->array_num = -1;
 			}
 	  ;
 
-assign_statement:	NAME ASSIGN_OP expression	{
+assign_statement:	name_or_array_name ASSIGN_OP expression	{
 						generate(3, "F_STORE", $3->name, $1->name, NULL);
+						$1->value = $3->value;
 						free_register($3);
 					}
 				;
@@ -145,11 +158,55 @@ primary:	NUMBER	{
 			$$ = $2;
 			fprintf(stderr, "primary: ( expression )\t remove expression\n");
 		}
+	   |	name_or_array_name	{
+			$$ = $1;
+		}
 	   ;
+
+name_or_array_name:	NAME	{
+						struct symtab *sp = check_symtab($1->name);
+						if(sp == NULL){
+							// Must Declare before reference
+							char error_msg[1000];
+							sprintf(error_msg, "Variable %s reference before declaration\n", $1->name);
+							yyerror(error_msg);
+							exit(-1);
+						}
+						free($1->name);
+						free($1);
+						$$ = sp;
+						fprintf(stderr, "primary: NAME\n");
+					}
+				  |	ARRAY_NAME	{
+						char this_array_name[VAR_NAME_MAX];
+						sprintf(this_array_name, "%s[0]", $1->name);
+						struct symtab *sp = check_symtab(this_array_name);
+						if(sp == NULL){
+							// Must Declare before reference
+							char error_msg[1000];
+							sprintf(error_msg, "Variable %s reference before declaration\n", $1->name);
+							yyerror(error_msg);
+							exit(-1);
+						}
+						sprintf(this_array_name, "%s[%d]", $1->name, $1->array_num);
+						sp = check_symtab(this_array_name);
+						if(sp == NULL){
+							// Array index too large
+							char error_msg[1000];
+							sprintf(error_msg, "Array %s index %d out of bound.\n", $1->name, $1->array_num);
+							yyerror(error_msg);
+							exit(-1);
+						}
+						$$ = sp;
+						fprintf(stderr, "primary: ARRAY_NAME\t(%s=%lf)\n", this_array_name, sp->value);
+						free($1->name);
+						free($1);
+					}
+				  ;
 
 exit_statement:	Exit '(' NUMBER ')'	{
 					clean_up($3);
-					exit(-1);
+					exit(0);
 				}
 			  ;
 %%
@@ -158,16 +215,29 @@ struct symtab *new_symtab(char *s){
 	struct symtab *sp;
 	
 	for(sp = my_symtab; sp < &my_symtab[NSYMS]; sp++) {
-		if(sp->name && !strcmp(sp->name, s))
-			return sp;
+		if(sp->name && !strcmp(sp->name, s)){
+			char error_msg[VAR_NAME_MAX+100];
+			sprintf(error_msg, "In new_symtab: Already defined variable %s\n", sp->name);
+			yyerror(error_msg);
+			exit(-1);
+		}
 		if(!sp->name) {
 			sp->name = strdup(s);
 			sp->value = 0;
 			return sp;
 		}
 	}
-	yyerror("In new_symlook: Too many symbols");
+	yyerror("In new_symlook: Too many variables, cannot define new variable.");
 	exit(-1);
+}
+
+struct symtab* check_symtab(char *s){
+	struct symtab *sp;
+	for(sp = my_symtab; sp < &my_symtab[NSYMS]; sp++) {
+		if(sp->name && !strcmp(sp->name, s))
+			return sp;
+	}
+	return NULL;
 }
 
 struct symtab *new_register(){
@@ -224,7 +294,7 @@ void reset_vlist(void){
 
 void insert_vlist(struct v_name *vname){
 	int i_now = my_vlist.total_num;
-	my_vlist.table[i_now].name = vname->name;
+	my_vlist.table[i_now].name = strdup(vname->name);
 	my_vlist.table[i_now].array_num = vname->array_num;
 	my_vlist.total_num ++;
 }
