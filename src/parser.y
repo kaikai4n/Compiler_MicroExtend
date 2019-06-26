@@ -135,6 +135,16 @@ primary:	NUMBER	{
 			sprintf(name_1, "%lf", $1);
 			generate(3, "F_STORE", name_1, $$->name, NULL);
 		}
+	   |	'-' primary	{
+			$$ = new_register();
+			$$->value = -$2->value;
+			fprintf(stderr, "primary: - primary\t%lf = %lf\n", $$->value, $2->value);
+			generate(3, "F_UMINUS", $2->name, $$->name, NULL);
+		}
+	   |	'(' expression ')'	{
+			$$ = $2;
+			fprintf(stderr, "primary: ( expression )\t remove expression\n");
+		}
 	   ;
 
 exit_statement:	Exit '(' NUMBER ')'	{
