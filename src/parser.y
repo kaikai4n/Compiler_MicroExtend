@@ -25,6 +25,7 @@ int register_status[REGISTER_MAX+1] = {0};
 
 %token <symb> NAME;
 %token <vname> ARRAY_NAME;
+%token <vname> ARRAY_VAR_NAME;
 %token <dval> NUMBER;
 %token <dint> TYPE;
 %token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit;
@@ -202,6 +203,37 @@ name_or_array_name:	NAME	{
 						free($1->name);
 						free($1);
 					}
+				  |	ARRAY_VAR_NAME	{
+						int lb, rb;
+						char *ori_name = strdup($1->name);
+						for(lb = 0; lb < strlen(ori_name); lb++){
+							if($1->name[lb] == '['){
+								$1->name[lb] = '\0';
+								lb ++;
+								break;
+							}
+						}
+						for(rb = lb; rb < strlen(ori_name); rb++){
+							if($1->name[rb] == ']'){
+								$1->name[rb] = '\0';
+								break;
+							}
+						}
+						char checked_var_name[VAR_NAME_MAX+10];
+						sprintf(checked_var_name, "%s[0]", $1->name);
+						if(check_symtab(checked_var_name) == NULL || check_symtab(&($1->name[lb])) == NULL){
+							if(check_symtab(&($1->name[lb])) == NULL)
+								fprintf(stderr, "Hello: %s\n", &($1->name[lb]));
+							// Variable reference before declaration
+							char error_msg[1000];
+							sprintf(error_msg, "Variable %s reference before declaration\n", ori_name);
+							yyerror(error_msg);
+							exit(-1);
+						}
+						$$ = (struct symtab*) malloc(sizeof(struct symtab));
+						$$->name = ori_name;
+						$$->value = 0;
+					}
 				  ;
 
 exit_statement:	Exit '(' NUMBER ')'	{
@@ -274,6 +306,10 @@ void free_symtab(struct symtab *tp){
 
 void free_register(struct symtab *sp){
 	// clear unused register;
+	if(check_symtab(sp->name) == NULL){
+		// Might be something like LLL[I]
+		return;
+	}
 	int register_index = atoi(&(sp->name[2]));
 	fprintf(stderr, "Free register: %s\n", sp->name);
 	register_status[register_index] = 0;
