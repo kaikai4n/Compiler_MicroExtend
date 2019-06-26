@@ -27,6 +27,7 @@ void reset_vlist(void);
 void insert_vlist(struct v_name *vname);
 void generate(int length, char *instruction, char *name_1, char *name_2, char *name_3);
 struct symtab *new_symtab(char *s);
+struct symtab *check_symtab(char *s);
 struct symtab *new_register();
 void free_symtab(struct symtab *tp);
 void free_register(struct symtab *sp);
