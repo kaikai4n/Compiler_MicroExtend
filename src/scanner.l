@@ -24,8 +24,9 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 [Ee][Nn][Dd]                            {return End;}
 [Rr][Ee][Aa][Dd]                        {return 3;}
 [Ww][Rr][Ii][Tt][Ee]                    {return 4;}
-\(                                      {return 10;}
-\)                                      {return 11;}
+[Ee][Xx][Ii][Tt]						{return Exit;}
+\(                                      {return '(';}
+\)                                      {return ')';}
 ;                                       {return ';';}
 \,                                      {return ',';}
 :=                                      {return ASSIGN_OP;}
@@ -62,7 +63,7 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
         return TYPE;
     }
 [a-zA-Z]+([a-zA-Z0-9_]*)                {
-        yylval.symb = symlook(yytext);
+        yylval.symb = new_symtab(yytext);
 		fprintf(stderr, "In lex: new NAME: %s\n", yylval.symb->name);
         return NAME;
     }
@@ -83,10 +84,15 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 		}
         yylval.vname->name = strdup(yytext);
 		yylval.vname->array_num = atoi(&yytext[lb]);
-		symlook(yytext);
+		for(int array_i = 0; array_i < yylval.vname->array_num; array_i ++){
+			char this_array_name[VAR_NAME_MAX];
+			sprintf(this_array_name, "%s[%d]", yylval.vname->name, array_i);
+			fprintf(stderr, "In lex: new array name: %s\n", this_array_name);
+			new_symtab(this_array_name);
+		}
         return ARRAY_NAME;
     }
-([0-9]+|([0-9]*\.[0-9]+)([eE][-+]?[0-9]+)?) {
+-?([0-9]+|([0-9]*\.[0-9]+)([eE][-+]?[0-9]+)?) {
         yylval.dval = atof(yytext);
         return NUMBER;
     }
@@ -113,5 +119,4 @@ int main()
     printf("End of file\n");
 }
 */
-
 
