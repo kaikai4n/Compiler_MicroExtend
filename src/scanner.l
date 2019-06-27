@@ -44,9 +44,10 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 [Tt][Hh][Ee][Nn]                        {return 26;}
 [Ee][Ll][Ss][Ee]                        {return 27;}
 [Ee][Nn][Dd][Ii][Ff]                    {return 28;}
-[Ff][Oo][Rr]                            {return 29;}
-[Tt][Oo]                                {return 30;}
-[Ee][Nn][Dd][Ff][Oo][Rr]                {return 31;}
+[Ff][Oo][Rr]                            {return FOR;}
+[Ee][Nn][Dd][Ff][Oo][Rr]                {return ENDFOR;}
+[Tt][Oo]                                {return TO;}
+[Dd][Oo][Ww][Nn][Tt][Oo]				{return DOWNTO;}
 [Ww][Hh][Ii][Ll][Ee]                    {return 32;}
 [Ee][Nn][Dd][Ww][Hh][Ii][Ll][Ee]        {return 33;}
 [Dd][Ee][Cc][Ll][Aa][Rr][Ee]            {return DECLARE;}
