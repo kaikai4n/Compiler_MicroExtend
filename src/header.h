@@ -6,6 +6,7 @@
 #define NSYMS 1024	/* maximum number of symbols */
 #define REGISTER_MAX 32	/* maximum number of registers */
 #define VAR_NAME_MAX 1000	/*maximum number of variable names */
+#define STMT_SCOPE_MAX 32	/*maximum number of scopes of statement list*/
 
 struct symtab {
 	char *name;
@@ -31,4 +32,10 @@ struct symtab *check_symtab(char *s);
 struct symtab *new_register();
 void free_symtab(struct symtab *tp);
 void free_register(struct symtab *sp);
+
+char *new_label();
+void end_statement_list();
+int get_last_statement_list_index();
+int get_last_statement_list_type();
+void add_statement_list(int add_num);
 
