@@ -8,6 +8,7 @@
 #define VAR_NAME_MAX 1000	/*maximum number of variable names */
 #define STMT_SCOPE_MAX 32	/*maximum number of scopes of statement list*/
 #define LABEL_MAX 100
+#define EXP_LIST_MAX 100
 
 struct symtab {
 	char *name;
@@ -31,6 +32,11 @@ struct forhead {
 	int forloop_valid;	/* valid (1) if forhead condition is fulfilled
 							else (0) not fulfilled condition */
 	char *label_name;	/* The corresponding for loop header label name */
+} ;
+
+struct exp_list {
+	int total;
+	struct symtab *symtab[EXP_LIST_MAX];
 } ;
 
 void clean_up(int status);
