@@ -73,6 +73,7 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
         yylval.dint=2;
         return TYPE;
     }
+[Pp][Rr][Ii][Nn][Tt]					{return PRINT;}
 [a-zA-Z]+([a-zA-Z0-9_]*)                {
 		yylval.symb = (struct symtab*) malloc(sizeof(struct symtab));
 		yylval.symb->name = strdup(yytext);
