@@ -7,6 +7,7 @@
 #define REGISTER_MAX 32	/* maximum number of registers */
 #define VAR_NAME_MAX 1000	/*maximum number of variable names */
 #define STMT_SCOPE_MAX 32	/*maximum number of scopes of statement list*/
+#define LABEL_MAX 100
 
 struct symtab {
 	char *name;
@@ -23,6 +24,15 @@ struct v_list {
 	struct v_name table[NSYMS];
 } my_vlist;
 
+struct forhead {
+	char *l_exp_name;	/* left expression name */
+	char *r_exp_name;	/* right expression name*/
+	int to;	/* TO (0) or DOWNTO(1) */
+	int forloop_valid;	/* valid (1) if forhead condition is fulfilled
+							else (0) not fulfilled condition */
+	char *label_name;	/* The corresponding for loop header label name */
+} ;
+
 void clean_up(int status);
 void reset_vlist(void);
 void insert_vlist(struct v_name *vname);
@@ -34,6 +44,10 @@ void free_symtab(struct symtab *tp);
 void free_register(struct symtab *sp);
 
 char *new_label();
+void add_label(char *label);
+int get_last_not_printed_label_index();
+char *get_last_label();
+
 void end_statement_list();
 int get_last_statement_list_index();
 int get_last_statement_list_type();
