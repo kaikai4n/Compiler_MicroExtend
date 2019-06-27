@@ -16,6 +16,7 @@ int register_count = 0;
 int register_status[REGISTER_MAX+1] = {0};
 int forloop_statement_valid = 1;	/*define the for loop condition validity*/
 int label_count = 0;
+int label_status[LABEL_MAX+1] = {0};
 int print_statements[STMT_SCOPE_MAX] = {0};
 %}
 
@@ -24,6 +25,7 @@ int print_statements[STMT_SCOPE_MAX] = {0};
     struct symtab *symb;
 	int dint;
 	struct v_name *vname;
+	struct forhead *forhead;
 }
 
 %token <symb> NAME;
@@ -41,6 +43,7 @@ int print_statements[STMT_SCOPE_MAX] = {0};
 %type <symb> primary;
 %type <symb> name_or_array_name;
 %type <dint> to;	/*boolean: 0 is TO, 1 is DOWNTO*/
+%type <forhead> for_head;
 
 %%
 start:	program Begin statement_list_origin End	{ fprintf(stderr, "Finish Program with name: %s\n", $1->name); }
@@ -255,22 +258,44 @@ name_or_array_name:	NAME	{
 					}
 				  ;
 
-forloop_statement:	FOR for_head statement_list_origin ENDFOR
+forloop_statement:	FOR for_head statement_list_origin ENDFOR	{
+						if($2->forloop_valid == 0){
+							// Do not print anything
+						}else{
+							if($2->to == 0){
+								// TO
+								generate(2, "INC", $2->l_exp_name, NULL, NULL);
+								generate(3, "F_CMP", $2->l_exp_name, $2->r_exp_name, NULL);
+							}else{
+								// DOWNTO
+								generate(2, "DEC", $2->l_exp_name, NULL, NULL);
+								generate(3, "F_CMP", $2->r_exp_name, $2->l_exp_name, NULL);
+							}
+							char *last_forloop_label_name = $2->label_name;
+							generate(2, "JL", last_forloop_label_name, NULL, NULL);
+						}
+					}
 				 ;
 
 for_head:	'(' name_or_array_name ASSIGN_OP expression to expression ')'	{
 				$2->value = $4->value;
 				generate(3, "F_STORE", $4->name, $2->name, NULL);
+				$$ = (struct forhead *) malloc(sizeof(struct forhead));
+				$$->l_exp_name = strdup($2->name);
+				$$->r_exp_name = strdup($4->name);
+				$$->to = $5;
 				if(($5 == 0 && $4->value >= $6->value) || ($5 == 1 && $4->value <= $6->value)){
 					// forloop condition not fulfilled
 					// skip the following statement_list
-					forloop_statement_valid = 0;
 					add_statement_list(-1);
+					$$->forloop_valid = 0;
 				}else{
 					add_statement_list(1);
-					char *label_statment_list = new_label();
-					//generate(
-				
+					char *label_name = new_label();
+					generate(1, label_name, NULL, NULL, NULL);
+					add_label(label_name);
+					$$->forloop_valid = 1;
+					$$->label_name = label_name;
 				}
 			}
 		;
@@ -331,7 +356,7 @@ struct symtab *new_register(){
 	}
 	register_status[free_register_index] = 1;
 	register_count ++;
-	char register_name[VAR_NAME_MAX];
+	char register_name[100+REGISTER_MAX];
 	sprintf(register_name, "T&%d", free_register_index);
 	struct symtab *sp = new_symtab(register_name);
 	return sp;
@@ -357,11 +382,21 @@ void free_register(struct symtab *sp){
 		// Might be something like LLL[I]
 		return;
 	}
-	int register_index = atoi(&(sp->name[2]));
-	fprintf(stderr, "Free register: %s\n", sp->name);
-	register_status[register_index] = 0;
-	register_count --;
-	free_symtab(sp);
+	if(sp->name[0] == 'T' && sp->name[1] == '&'){
+		int register_index = atoi(&(sp->name[2]));
+		if(register_index < 1 || register_index > REGISTER_MAX || register_status[register_index] == 0){
+			char error_msg[100+REGISTER_MAX];
+			sprintf(error_msg, "Free an invalid register %s", sp->name);
+			yyerror(error_msg);
+			exit(-1);
+		}
+		fprintf(stderr, "Free register: %s\n", sp->name);
+		register_status[register_index] = 0;
+		register_count --;
+		free_symtab(sp);
+	}else{
+		// Free a variable is not included in this function
+	}
 }
 
 void reset_vlist(void){
@@ -413,7 +448,35 @@ void clean_up(int status){
 
 char *new_label(){
 	label_count ++;
-	char label_name[VAR_NAME_MAX+1000];
+	char label_name[100+LABEL_MAX];
+	sprintf(label_name, "lb&%d", label_count);
+	return strdup(label_name);
+}
+
+void add_label(char *label){
+	int label_index = atoi(&(label[3]));
+	if(label_index < 1 || label_index > LABEL_MAX || label_index > label_count){
+		yyerror("In add_label: invalid label index received.\n");
+		exit(-1);
+	}
+	if(label_status[label_index] == 1){
+		yyerror("In add_label: Regenerated label detected.\n");
+		exit(-1);
+	}
+	label_status[label_index] = 1;
+}
+
+int get_last_not_printed_label_index(){
+	for(int i = 1; i <= label_count; i ++){
+		if(label_status[i] == 0){
+			return i;
+		}
+	}
+	return -1;
+}
+
+char *get_last_label(){
+	char label_name[100+LABEL_MAX];
 	sprintf(label_name, "lb&%d", label_count);
 	return strdup(label_name);
 }
