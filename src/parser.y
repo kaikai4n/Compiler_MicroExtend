@@ -19,6 +19,7 @@ int forloop_statement_valid = 1;	/*define the for loop condition validity*/
 int label_count = 0;
 int label_status[LABEL_MAX+1] = {0};
 int print_statements[STMT_SCOPE_MAX] = {0};
+char *program_name;
 %}
 
 %union {
@@ -27,41 +28,36 @@ int print_statements[STMT_SCOPE_MAX] = {0};
 	int dint;
 	struct v_name *vname;
 	struct forhead *forhead;
+	char *str;
 }
 
 %token <symb> NAME;
-%token <vname> ARRAY_NAME;
-%token <vname> ARRAY_VAR_NAME;
+%token <vname> ARRAY_NAME ARRAY_VAR_NAME;
 %token <dval> NUMBER;
 %token <dint> TYPE;
 %token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit;
 %token FOR ENDFOR TO DOWNTO;
 %token IF ELSE ENDIF THEN;
-%type <symb> program;
+%token CMP_L CMP_G CMP_LE CMP_GE CMP_E CMP_NE;
 %type <vname> v_name;
 %type <dint> v_list;
-%type <symb> expression;
-%type <symb> mul_expression;
-%type <symb> primary;
-%type <symb> name_or_array_name;
 %type <dint> to;	/*boolean: 0 is TO, 1 is DOWNTO*/
+%type <dint> cmp_condition; /* 0: <, 1: >, 2: <=, 3: >=, 4: ==, 5: != */
+%type <symb> expression mul_expression primary name_or_array_name;
 %type <forhead> for_head;
+%type <str> condition condition_statement if_head if_head_to_statement;
 
 %%
 start:	program Begin statement_list_origin End	{ 
-			fprintf(stderr, "Finish Program with name: %s\n", $1->name); 
-			char this_register_name[100+REGISTER_MAX];
-			for(int reg_i = 1; reg_i <= max_register; reg_i ++){
-				sprintf(this_register_name, "T&%d", reg_i);
-				generate(3, "Declare", this_register_name, "Float", NULL);
-			}
+			fprintf(stderr, "Finish Program with name: %s\n", program_name); 
+			clean_up(0);
 		}
      ; 
 
 program:	PROGRAM NAME	{
-			$$ = $2;
 			generate(2, "START", $2->name, NULL, NULL);
 			add_statement_list(1);
+			program_name = $2->name;
 		}
 	   ;
 
@@ -72,9 +68,13 @@ statement_list_origin:	statement_list	{
 
 statement_list:	statement ';'
 			  | statement_list statement ';'
-			  |	statement_list forloop_statement	/*with no ';' ended*/
-			  |	statement_list if_statement
+			  |	nosemi_statement
+			  |	statement_list nosemi_statement
 			  ;
+
+nosemi_statement:	forloop_statement	/*with no ';' ended*/
+				|	if_statement
+				;
 
 statement:	declare_statement
 		 |	assign_statement
@@ -320,24 +320,78 @@ to:	TO	{
   ;
 
 
-if_statement:	IF if_head THEN statement_list ELSE statement_list_origin ENDIF	{
+if_statement:	IF if_head_to_statement ELSE statement_list ENDIF	{
 					fprintf(stderr, "IF THEN ELSE ENDIF detected\n");
+					char *endif_label = $2;
+					generate(1, endif_label, NULL, NULL, NULL);
+					add_label(endif_label);
 				}
 
 			|	IF if_head THEN statement_list ENDIF	{
 					fprintf(stderr, "IF THEN ENDIF detected\n");
+					char *last_not_printed_label = $2;
+					generate(1, last_not_printed_label, NULL, NULL, NULL);
+					add_label(last_not_printed_label);
 				}
 			;
 
-if_head:	'(' condition_statement ')'
+if_head_to_statement:	if_head THEN statement_list	{
+							char *endif_label = new_label();
+							$$ = endif_label;
+							generate(2, "J", endif_label, NULL, NULL);
+							char *else_label = $1;
+							generate(1, else_label, NULL, NULL, NULL);
+							add_label(else_label);
+						}
+					;
+
+if_head:	'(' condition_statement ')'	{
+			$$ = $2;
+		}
 	   ;
 
-condition_statement:	condition
+condition_statement:	condition	{
+						$$ = $1;
+					}
 				   ;
 
-condition:	expression '>' expression
-		 |	expression '<' expression
+condition:	expression cmp_condition expression	{
+				generate(3, "F_CMP", $1->name, $3->name, NULL);
+				char *label_name = new_label();
+				$$ = label_name;
+				switch($2) {
+					case 0:
+						generate(2, "JL", label_name, NULL, NULL);
+						break;
+					case 1:
+						generate(2, "JG", label_name, NULL, NULL);
+						break;
+					case 2:
+						generate(2, "JLE", label_name, NULL, NULL);
+						break;
+					case 3:
+						generate(2, "JGE", label_name, NULL, NULL);
+						break;
+					case 4:
+						generate(2, "JE", label_name, NULL, NULL);
+						break;
+					case 5:
+						generate(2, "JNE", label_name, NULL, NULL);
+						break;
+					default:
+						yyerror("Invalid comparison operand\n");
+						exit(-1);
+				}
+			}
 		 ;
+
+cmp_condition:	CMP_L	{$$ = 0;}
+			 |	CMP_G	{$$ = 1;}
+			 |	CMP_LE	{$$ = 2;}
+			 |	CMP_GE	{$$ = 3;}
+			 |	CMP_E	{$$ = 4;}
+			 |	CMP_NE	{$$ = 5;}
+			 ;
 
 exit_statement:	Exit '(' NUMBER ')'	{
 					clean_up($3);
@@ -472,10 +526,17 @@ void generate(int length, char *instruction, char *name_1, char *name_2, char *n
 }
 
 void clean_up(int status){
-	if(status < 0)
+	if(status < 0){
 		fprintf(stderr, "Program exited unexpectedly with status: %d\n", status);
-	else
+	}else{
 		fprintf(stderr, "Program ended\n");
+	}
+	generate(2, "HALT", program_name, NULL, NULL);
+	char this_register_name[100+REGISTER_MAX];
+	for(int reg_i = 1; reg_i <= max_register; reg_i ++){
+		sprintf(this_register_name, "T&%d", reg_i);
+		generate(3, "Declare", this_register_name, "Float", NULL);
+	}
 }
 
 
@@ -499,13 +560,15 @@ void add_label(char *label){
 	label_status[label_index] = 1;
 }
 
-int get_last_not_printed_label_index(){
+char *get_last_not_printed_label(){
 	for(int i = 1; i <= label_count; i ++){
 		if(label_status[i] == 0){
-			return i;
+			char label_name[100+LABEL_MAX];
+			sprintf(label_name, "lb&%d", i);
+			return strdup(label_name);
 		}
 	}
-	return -1;
+	return NULL;
 }
 
 char *get_last_label(){
