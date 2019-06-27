@@ -14,6 +14,9 @@ char num_to_type[2][10] = {"Integer", "Float"};
 int line_count = 1;
 int register_count = 0;
 int register_status[REGISTER_MAX+1] = {0};
+int forloop_statement_valid = 1;	/*define the for loop condition validity*/
+int label_count = 0;
+int print_statements[STMT_SCOPE_MAX] = {0};
 %}
 
 %union {
@@ -29,19 +32,35 @@ int register_status[REGISTER_MAX+1] = {0};
 %token <dval> NUMBER;
 %token <dint> TYPE;
 %token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit;
+%token FOR ENDFOR TO DOWNTO;
+%type <symb> program;
 %type <vname> v_name;
 %type <dint> v_list;
 %type <symb> expression;
 %type <symb> mul_expression;
 %type <symb> primary;
 %type <symb> name_or_array_name;
+%type <dint> to;	/*boolean: 0 is TO, 1 is DOWNTO*/
 
 %%
-start:	PROGRAM NAME Begin statement_list End	{ fprintf(stderr, "Finish Program with name: %s\n", $2->name); }
+start:	program Begin statement_list_origin End	{ fprintf(stderr, "Finish Program with name: %s\n", $1->name); }
      ; 
+
+program:	PROGRAM NAME	{
+			$$ = $2;
+			generate(2, "START", $2->name, NULL, NULL);
+			add_statement_list(1);
+		}
+	   ;
+
+statement_list_origin:	statement_list	{
+							end_statement_list();
+						}
+					 ;
 
 statement_list:	statement ';'
 			  | statement_list statement ';'
+			  |	statement_list forloop_statement	/*with no ';' ended*/
 			  ;
 
 statement:	declare_statement
@@ -236,6 +255,34 @@ name_or_array_name:	NAME	{
 					}
 				  ;
 
+forloop_statement:	FOR for_head statement_list_origin ENDFOR
+				 ;
+
+for_head:	'(' name_or_array_name ASSIGN_OP expression to expression ')'	{
+				$2->value = $4->value;
+				generate(3, "F_STORE", $4->name, $2->name, NULL);
+				if(($5 == 0 && $4->value >= $6->value) || ($5 == 1 && $4->value <= $6->value)){
+					// forloop condition not fulfilled
+					// skip the following statement_list
+					forloop_statement_valid = 0;
+					add_statement_list(-1);
+				}else{
+					add_statement_list(1);
+					char *label_statment_list = new_label();
+					//generate(
+				
+				}
+			}
+		;
+
+to:	TO	{
+		$$ = 0;
+	}
+  |	DOWNTO	{
+		$$ = 1;
+	}
+  ;
+
 exit_statement:	Exit '(' NUMBER ')'	{
 					clean_up($3);
 					exit(0);
@@ -336,7 +383,10 @@ void insert_vlist(struct v_name *vname){
 }
 
 void generate(int length, char *instruction, char *name_1, char *name_2, char *name_3){
-	if(length < 1 || length > 4){
+	int last_type = get_last_statement_list_type();
+	if(last_type == -1){
+		// Do not print out the instructions
+	}else if(length < 1 || length > 4){
 		yyerror("In generate: Generate function error, input length should between 1 and 4\n");
 		exit(-1);
 	}else if(length == 1){
@@ -358,4 +408,45 @@ void clean_up(int status){
 		fprintf(stderr, "Program exited unexpectedly with status: %d\n", status);
 	else
 		fprintf(stderr, "Program ended\n");
+}
+
+
+char *new_label(){
+	label_count ++;
+	char label_name[VAR_NAME_MAX+1000];
+	sprintf(label_name, "lb&%d", label_count);
+	return strdup(label_name);
+}
+
+void end_statement_list(){
+	int last_index = get_last_statement_list_index();
+	print_statements[last_index] = 0;
+}
+
+int get_last_statement_list_index(){
+	for(int i = STMT_SCOPE_MAX-1; i >= 0; i --){
+		if(print_statements[i] != 0){
+			return i;
+		}
+	}
+	return 0;
+}
+
+int get_last_statement_list_type(){
+	int last_index = get_last_statement_list_index();
+	return print_statements[last_index];
+}
+
+void add_statement_list(int add_num){
+	if(add_num != 1 && add_num != -1){
+		yyerror("In add_statement_list: add_num must be 1 or -1");
+		exit(-1);
+	}
+	int last_index = get_last_statement_list_index();
+	last_index ++;
+	if(last_index >= STMT_SCOPE_MAX){
+		yyerror("In add_statement_list: Maximum of scopes reached!");
+		exit(-1);
+	}
+	print_statements[last_index] = add_num;
 }
