@@ -45,7 +45,7 @@ void free_register(struct symtab *sp);
 
 char *new_label();
 void add_label(char *label);
-int get_last_not_printed_label_index();
+char *get_last_not_printed_label();
 char *get_last_label();
 
 void end_statement_list();
