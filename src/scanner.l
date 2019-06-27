@@ -20,6 +20,16 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 		line_count ++;
 	}
 
+\%\{[^\%^\}]*\%\}	{
+		int new_lines_count = 0;
+		for(int i = 0; i < strlen(yytext); i++){
+			if(yytext[i] == '\n')
+				new_lines_count ++;
+		}
+		fprintf(stderr, "Comment multiple lines: %d lines\n", new_lines_count);
+		line_count += new_lines_count;
+	}
+
 [Bb][Ee][Gg][Ii][Nn]                    {return Begin;}
 [Ee][Nn][Dd]                            {return End;}
 [Rr][Ee][Aa][Dd]                        {return 3;}
@@ -35,15 +45,15 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 \*                                      {return '*';}
 \/                                      {return '/';}
 !=                                      {return 19;}
->                                       {return 20;}
-\<                                      {return 21;}
+>                                       {return '>';}
+\<                                      {return '<';}
 >=                                      {return 22;}
 \<=                                     {return 23;}
 ==                                      {return 24;}
-[Ii][Ff]                                {return 25;}
-[Tt][Hh][Ee][Nn]                        {return 26;}
-[Ee][Ll][Ss][Ee]                        {return 27;}
-[Ee][Nn][Dd][Ii][Ff]                    {return 28;}
+[Ii][Ff]                                {return IF;}
+[Tt][Hh][Ee][Nn]                        {return THEN;}
+[Ee][Ll][Ss][Ee]                        {return ELSE;}
+[Ee][Nn][Dd][Ii][Ff]                    {return ENDIF;}
 [Ff][Oo][Rr]                            {return FOR;}
 [Ee][Nn][Dd][Ff][Oo][Rr]                {return ENDFOR;}
 [Tt][Oo]                                {return TO;}
