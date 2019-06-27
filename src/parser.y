@@ -29,13 +29,14 @@ char *program_name;
 	struct v_name *vname;
 	struct forhead *forhead;
 	char *str;
+	struct exp_list *explist;
 }
 
 %token <symb> NAME;
 %token <vname> ARRAY_NAME ARRAY_VAR_NAME;
 %token <dval> NUMBER;
 %token <dint> TYPE;
-%token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit;
+%token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit PRINT;
 %token FOR ENDFOR TO DOWNTO;
 %token IF ELSE ENDIF THEN;
 %token CMP_L CMP_G CMP_LE CMP_GE CMP_E CMP_NE;
@@ -46,6 +47,7 @@ char *program_name;
 %type <symb> expression mul_expression primary name_or_array_name;
 %type <forhead> for_head;
 %type <str> condition condition_statement if_head if_head_to_statement;
+%type <explist> expression_list;
 
 %%
 start:	program Begin statement_list_origin End	{ 
@@ -78,6 +80,7 @@ nosemi_statement:	forloop_statement	/*with no ';' ended*/
 
 statement:	declare_statement
 		 |	assign_statement
+		 |	print_statement
 		 |	exit_statement
 		 ;
 
@@ -392,6 +395,28 @@ cmp_condition:	CMP_L	{$$ = 0;}
 			 |	CMP_E	{$$ = 4;}
 			 |	CMP_NE	{$$ = 5;}
 			 ;
+
+print_statement:	PRINT '(' expression_list ')'	{
+					for(int i = 0; i < $3->total; i ++){
+						generate(3, "CALL", "print", $3->symtab[i]->name, NULL);
+					}
+				}
+
+expression_list:	expression_list ',' expression	{
+					if($1->total >= EXP_LIST_MAX){
+						yyerror("Expression list exceed limits.");
+						exit(-1);
+					}
+					$$ = $1;
+					$$->symtab[$$->total] = $3;
+					$$->total ++;
+				}
+			   |	expression	{
+					$$ = (struct exp_list *) malloc(sizeof(struct exp_list));
+					$$->total = 1;
+					$$->symtab[0] = $1;
+				}
+			   ;
 
 exit_statement:	Exit '(' NUMBER ')'	{
 					clean_up($3);
