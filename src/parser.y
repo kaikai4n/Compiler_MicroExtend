@@ -36,6 +36,7 @@ int print_statements[STMT_SCOPE_MAX] = {0};
 %token <dint> TYPE;
 %token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit;
 %token FOR ENDFOR TO DOWNTO;
+%token IF ELSE ENDIF THEN;
 %type <symb> program;
 %type <vname> v_name;
 %type <dint> v_list;
@@ -72,6 +73,7 @@ statement_list_origin:	statement_list	{
 statement_list:	statement ';'
 			  | statement_list statement ';'
 			  |	statement_list forloop_statement	/*with no ';' ended*/
+			  |	statement_list if_statement
 			  ;
 
 statement:	declare_statement
@@ -270,17 +272,18 @@ forloop_statement:	FOR for_head statement_list_origin ENDFOR	{
 						if($2->forloop_valid == 0){
 							// Do not print anything
 						}else{
+							char *last_forloop_label_name = $2->label_name;
 							if($2->to == 0){
 								// TO
 								generate(2, "INC", $2->l_exp_name, NULL, NULL);
 								generate(3, "F_CMP", $2->l_exp_name, $2->r_exp_name, NULL);
+								generate(2, "JL", last_forloop_label_name, NULL, NULL);
 							}else{
 								// DOWNTO
 								generate(2, "DEC", $2->l_exp_name, NULL, NULL);
-								generate(3, "F_CMP", $2->r_exp_name, $2->l_exp_name, NULL);
+								generate(3, "F_CMP", $2->l_exp_name, $2->r_exp_name, NULL);
+								generate(2, "JG", last_forloop_label_name, NULL, NULL);
 							}
-							char *last_forloop_label_name = $2->label_name;
-							generate(2, "JL", last_forloop_label_name, NULL, NULL);
 						}
 					}
 				 ;
@@ -315,6 +318,26 @@ to:	TO	{
 		$$ = 1;
 	}
   ;
+
+
+if_statement:	IF if_head THEN statement_list ELSE statement_list_origin ENDIF	{
+					fprintf(stderr, "IF THEN ELSE ENDIF detected\n");
+				}
+
+			|	IF if_head THEN statement_list ENDIF	{
+					fprintf(stderr, "IF THEN ENDIF detected\n");
+				}
+			;
+
+if_head:	'(' condition_statement ')'
+	   ;
+
+condition_statement:	condition
+				   ;
+
+condition:	expression '>' expression
+		 |	expression '<' expression
+		 ;
 
 exit_statement:	Exit '(' NUMBER ')'	{
 					clean_up($3);
