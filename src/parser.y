@@ -13,6 +13,7 @@ int yylex (void);
 char num_to_type[2][10] = {"Integer", "Float"};
 int line_count = 1;
 int register_count = 0;
+int max_register = 0;
 int register_status[REGISTER_MAX+1] = {0};
 int forloop_statement_valid = 1;	/*define the for loop condition validity*/
 int label_count = 0;
@@ -46,7 +47,14 @@ int print_statements[STMT_SCOPE_MAX] = {0};
 %type <forhead> for_head;
 
 %%
-start:	program Begin statement_list_origin End	{ fprintf(stderr, "Finish Program with name: %s\n", $1->name); }
+start:	program Begin statement_list_origin End	{ 
+			fprintf(stderr, "Finish Program with name: %s\n", $1->name); 
+			char this_register_name[100+REGISTER_MAX];
+			for(int reg_i = 1; reg_i <= max_register; reg_i ++){
+				sprintf(this_register_name, "T&%d", reg_i);
+				generate(3, "Declare", this_register_name, "Float", NULL);
+			}
+		}
      ; 
 
 program:	PROGRAM NAME	{
@@ -356,6 +364,8 @@ struct symtab *new_register(){
 	}
 	register_status[free_register_index] = 1;
 	register_count ++;
+	if(register_count > max_register)
+		max_register = register_count;
 	char register_name[100+REGISTER_MAX];
 	sprintf(register_name, "T&%d", free_register_index);
 	struct symtab *sp = new_symtab(register_name);
