@@ -57,6 +57,7 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 [Ff][Oo][Rr]                            {return FOR;}
 [Ee][Nn][Dd][Ff][Oo][Rr]                {return ENDFOR;}
 [Tt][Oo]                                {return TO;}
+[Ss][Tt][Ee][Pp]						{return STEP;}
 [Dd][Oo][Ww][Nn][Tt][Oo]				{return DOWNTO;}
 [Ww][Hh][Ii][Ll][Ee]                    {return 32;}
 [Ee][Nn][Dd][Ww][Hh][Ii][Ll][Ee]        {return 33;}
