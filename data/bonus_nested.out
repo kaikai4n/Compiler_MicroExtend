@@ -1,0 +1,40 @@
+	START testP
+	Declare I, Integer
+	Declare J, Integer
+
+	Declare A, Float
+	Declare B, Float
+
+	I_STORE 1, I
+lb&1:	CALL print, I
+	I_ADD I, 1, T&1
+	I_STORE T&1, J
+lb&2:	CALL print, I
+	INC J
+	I_CMP J, 10
+	JL lb&2
+
+	INC I
+	I_CMP I, 9
+	JL lb&1
+
+	F_CMP A, 10000.0
+	JL lb&3
+	F_CMP B, 0.0
+	JG lb&4
+	F_ADD A, 3.14, T&2
+	CALL print, T&2
+	J lb&5
+lb&4:	F_MUL 3.14, 10, T&3
+	F_ADD A, T&3, T&4
+	CALL print, T&4
+
+lb&5:	J lb&6
+lb&3:	CALL print, 2, 1.4
+
+lb&6:	HALT testP
+
+	Declare T&1, Float
+	Declare T&2, Float
+	Declare T&3, Float
+	Declare T&4, Float

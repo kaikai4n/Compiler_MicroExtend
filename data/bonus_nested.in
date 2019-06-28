@@ -1,0 +1,27 @@
+%%the beginning of an test data for Micro/Ex
+Program testP
+
+Begin
+	%% Declare variables
+	declare I, J as integer;
+	declare A, B as float;
+	%% Start for loop with step 
+	FOR (I := 1 TO 9)
+		print(I);
+		FOR (J := I+1 TO 10)
+			print(I);
+		ENDFOR
+	ENDFOR
+
+	IF (A>=10000.0) THEN
+		IF (B<=0.0) THEN
+			print(A+3.14);
+		ELSE
+			print(A+3.14*10);
+		ENDIF
+	ELSE
+		print(2,1.4);
+	ENDIF
+
+End
+
