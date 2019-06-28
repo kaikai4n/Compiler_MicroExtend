@@ -1,0 +1,32 @@
+./compiler < ../data/testfile.micro 2> /dev/null
+	START testP
+	Declare I, Integer
+
+	Declare A, Float
+	Declare B, Float
+	Declare C, Float
+	Declare D, Float
+	Declare LLL, Float_array, 100
+
+	I_STORE 1, I
+lb&1:	F_UMINUS LLL[I], T&1
+	F_MUL B, D, T&2
+	F_ADD T&1, T&2, T&3
+	F_SUB T&3, C, T&1
+	F_STORE T&1, A
+	INC I
+	I_CMP I, 100
+	JL lb&1
+
+	F_CMP A, 10000.0
+	JL lb&2
+	F_ADD A, 3.14, T&1
+	CALL print, T&1
+	J lb&3
+lb&2:	CALL print, 2, 1.4
+
+lb&3:	HALT testP
+
+	Declare T&1, Float
+	Declare T&2, Float
+	Declare T&3, Float
