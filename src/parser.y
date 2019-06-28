@@ -337,7 +337,9 @@ for_head:	'(' name_or_array_name ASSIGN_OP expression to expression ')'	{
 				$$->r_exp_name = strdup($6->name);
 				$$->to = $5;
 				$$->cmp_type = (type || $6->type) ? 1 : 0;
-				if(($5 == 0 && $4->value >= $6->value) || ($5 == 1 && $4->value <= $6->value)){
+				if((atof($4->name) == $4->value && atof($6->name) == $6->value) 
+					&& (($5 == 0 && $4->value >= $6->value) 
+						|| ($5 == 1 && $4->value <= $6->value))){
 					// forloop condition not fulfilled
 					// skip the following statement_list
 					add_statement_list(-1);
