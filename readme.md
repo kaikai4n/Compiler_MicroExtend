@@ -110,3 +110,6 @@ The compiler should generate the assembly code:
 lb&2:	CALL print, a
 lb&3:
 ```
+## Comments
+- ``%%`` to comment one line
+- ``%{ comments }%`` to comment multiple lines
