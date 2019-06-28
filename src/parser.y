@@ -37,14 +37,14 @@ char *program_name;
 %token <symb> NUMBER;
 %token <dint> TYPE;
 %token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit PRINT;
-%token FOR ENDFOR TO DOWNTO;
+%token FOR ENDFOR TO DOWNTO STEP;
 %token IF ELSE ENDIF THEN;
 %token CMP_L CMP_G CMP_LE CMP_GE CMP_E CMP_NE;
 %type <vname> v_name;
 %type <dint> v_list;
 %type <dint> to;	/*boolean: 0 is TO, 1 is DOWNTO*/
 %type <dint> cmp_condition; /* 0: <, 1: >, 2: <=, 3: >=, 4: ==, 5: != */
-%type <symb> expression mul_expression primary name_or_array_name;
+%type <symb> expression mul_expression primary name_or_array_name step;
 %type <forhead> for_head;
 %type <str> condition condition_statement if_head if_head_to_statement;
 %type <explist> expression_list;
@@ -309,12 +309,32 @@ forloop_statement:	FOR for_head statement_list_origin ENDFOR	{
 							char *last_forloop_label_name = $2->label_name;
 							if($2->to == 0){
 								// TO
-								generate(2, "INC", $2->l_exp_name, NULL, NULL);
+								if(atof($2->step->name) == $2->step->value && $2->step->value == 1){
+									generate(2, "INC", $2->l_exp_name, NULL, NULL);
+								}else{
+									int step_type = $2->type;
+									struct symtab *temp_reg = new_register(step_type);
+									if(step_type == 0){
+										generate(4, "I_ADD", $2->l_exp_name, $2->step->name, temp_reg->name);
+										generate(3, "I_STORE", temp_reg->name, $2->l_exp_name, NULL);
+										free_register(temp_reg);
+									}
+								}
 								generate(3, cmp_type, $2->l_exp_name, $2->r_exp_name, NULL);
 								generate(2, "JL", last_forloop_label_name, NULL, NULL);
 							}else{
 								// DOWNTO
-								generate(2, "DEC", $2->l_exp_name, NULL, NULL);
+								if(atof($2->step->name) == $2->step->value && $2->step->value == 1){
+									generate(2, "DEC", $2->l_exp_name, NULL, NULL);
+								}else{
+									int step_type = $2->type;
+									struct symtab *temp_reg = new_register(step_type);
+									if(step_type == 0){
+										generate(4, "I_DEC", $2->l_exp_name, $2->step->name, temp_reg->name);
+										generate(3, "I_STORE", temp_reg->name, $2->l_exp_name, NULL);
+										free_register(temp_reg);
+									}
+								}
 								generate(3, cmp_type, $2->l_exp_name, $2->r_exp_name, NULL);
 								generate(2, "JG", last_forloop_label_name, NULL, NULL);
 							}
@@ -323,7 +343,7 @@ forloop_statement:	FOR for_head statement_list_origin ENDFOR	{
 					}
 				 ;
 
-for_head:	'(' name_or_array_name ASSIGN_OP expression to expression ')'	{
+for_head:	'(' name_or_array_name ASSIGN_OP expression to expression step ')'	{
 				int type = $2->type;
 				if(type == 0){
 					$2->value = (int) $4->value;
@@ -337,14 +357,17 @@ for_head:	'(' name_or_array_name ASSIGN_OP expression to expression ')'	{
 				$$->r_exp_name = strdup($6->name);
 				$$->to = $5;
 				$$->cmp_type = (type || $6->type) ? 1 : 0;
-				if((atof($4->name) == $4->value && atof($6->name) == $6->value) 
+				$$->step = $7;
+				$$->type = type;
+				/*if((atof($4->name) == $4->value && atof($6->name) == $6->value) 
 					&& (($5 == 0 && $4->value >= $6->value) 
 						|| ($5 == 1 && $4->value <= $6->value))){
 					// forloop condition not fulfilled
 					// skip the following statement_list
 					add_statement_list(-1);
 					$$->forloop_valid = 0;
-				}else{
+				}else*/
+				{
 					add_statement_list(1);
 					char *label_name = new_label();
 					generate(1, label_name, NULL, NULL, NULL);
@@ -363,7 +386,15 @@ to:	TO	{
 	}
   ;
 
-
+step:	{
+			$$->name = strdup("1");	
+			$$->value = 1;
+			$$->type = 0;
+		}
+	|	STEP expression	{
+			$$ = $2;
+		}
+	;
 if_statement:	IF if_head_to_statement ELSE statement_list ENDIF	{
 					fprintf(stderr, "IF THEN ELSE ENDIF detected\n");
 					char *endif_label = $2;
