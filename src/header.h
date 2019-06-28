@@ -13,6 +13,7 @@
 struct symtab {
 	char *name;
 	double value;
+	int type;
 } my_symtab[NSYMS];
 
 struct v_name {
@@ -32,6 +33,7 @@ struct forhead {
 	int forloop_valid;	/* valid (1) if forhead condition is fulfilled
 							else (0) not fulfilled condition */
 	char *label_name;	/* The corresponding for loop header label name */
+	int cmp_type;		/* 0 is I_CMP, 1 is F_CMP */
 } ;
 
 struct exp_list {
@@ -43,7 +45,7 @@ void clean_up(int status);
 void reset_vlist(void);
 void insert_vlist(struct v_name *vname);
 void generate(int length, char *instruction, char *name_1, char *name_2, char *name_3);
-struct symtab *new_symtab(char *s);
+struct symtab *new_symtab(char *s, int type);
 struct symtab *check_symtab(char *s);
 struct symtab *new_register();
 void free_symtab(struct symtab *tp);
