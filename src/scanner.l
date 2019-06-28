@@ -63,14 +63,14 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 [Dd][Ee][Cc][Ll][Aa][Rr][Ee]            {return DECLARE;}
 [Aa][Ss]                                {return AS;}
 [Ii][Nn][Tt][Ee][Gg][Ee][Rr]            {
-        yylval.dint=1; 
+        yylval.dint=0; 
         return TYPE;
     }
 [Rr][Ee][Aa][Ll]                        {return 37;}
 <<EOF>>                                 {return 38;}
 [Pp][Rr][Oo][Gg][Rr][Aa][Mm]            {return PROGRAM;}
 [Ff][Ll][Oo][Aa][Tt]                    {
-        yylval.dint=2;
+        yylval.dint=1;
         return TYPE;
     }
 [Pp][Rr][Ii][Nn][Tt]					{return PRINT;}
@@ -108,8 +108,18 @@ float_regex     ({int_regex}+\.{int_regex}*)|({int_regex}*\.{int_regex}+)
 		yylval.vname->name = strdup(yytext);
 		return ARRAY_VAR_NAME;		
 	}
+-?([1-9]+[0-9]*|0)	{
+		yylval.symb = (struct symtab *) malloc(sizeof(struct symtab));
+		yylval.symb->name = strdup(yytext);
+        yylval.symb->value = atof(yytext);
+		yylval.symb->type = 0;	/* NUMBER is Int */
+        return NUMBER;
+	}
 -?([0-9]+|([0-9]*\.[0-9]+)([eE][-+]?[0-9]+)?) {
-        yylval.dval = atof(yytext);
+		yylval.symb = (struct symtab *) malloc(sizeof(struct symtab));
+		yylval.symb->name = strdup(yytext);
+        yylval.symb->value = atof(yytext);
+		yylval.symb->type = 1;	/* NUMBER is Float */
         return NUMBER;
     }
 \".+\"                                  {return 9;}
