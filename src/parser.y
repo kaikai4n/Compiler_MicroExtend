@@ -94,9 +94,11 @@ declare_statement: DECLARE v_list AS TYPE	{
 					yyerror("Array size must > 1\n");
 					exit(-1);
 				}
+				char name_2[VAR_NAME_MAX];
+				sprintf(name_2, "%s_array", num_to_type[$4-1]);
 				char name_3[VAR_NAME_MAX];
 				sprintf(name_3, "%d", my_vlist.table[i].array_num);
-				generate(4, "Declare", my_vlist.table[i].name, num_to_type[$4-1], name_3);
+				generate(4, "Declare", my_vlist.table[i].name, name_2, name_3);
 				
 				char this_array_name[VAR_NAME_MAX];
 				for(int array_i = 0; array_i < my_vlist.table[i].array_num; array_i ++){
@@ -105,6 +107,7 @@ declare_statement: DECLARE v_list AS TYPE	{
 				}
 			}
 		}
+		generate(0, NULL, NULL, NULL, NULL);
 		reset_vlist();
 	}
 
@@ -288,6 +291,7 @@ forloop_statement:	FOR for_head statement_list_origin ENDFOR	{
 								generate(2, "JG", last_forloop_label_name, NULL, NULL);
 							}
 						}
+						generate(0, NULL, NULL, NULL, NULL);
 					}
 				 ;
 
@@ -295,8 +299,8 @@ for_head:	'(' name_or_array_name ASSIGN_OP expression to expression ')'	{
 				$2->value = $4->value;
 				generate(3, "F_STORE", $4->name, $2->name, NULL);
 				$$ = (struct forhead *) malloc(sizeof(struct forhead));
-				$$->l_exp_name = strdup($2->name);
-				$$->r_exp_name = strdup($4->name);
+				$$->l_exp_name = strdup($4->name);
+				$$->r_exp_name = strdup($6->name);
 				$$->to = $5;
 				if(($5 == 0 && $4->value >= $6->value) || ($5 == 1 && $4->value <= $6->value)){
 					// forloop condition not fulfilled
@@ -326,6 +330,7 @@ to:	TO	{
 if_statement:	IF if_head_to_statement ELSE statement_list ENDIF	{
 					fprintf(stderr, "IF THEN ELSE ENDIF detected\n");
 					char *endif_label = $2;
+					generate(0, NULL, NULL, NULL, NULL);
 					generate(1, endif_label, NULL, NULL, NULL);
 					add_label(endif_label);
 				}
@@ -333,6 +338,7 @@ if_statement:	IF if_head_to_statement ELSE statement_list ENDIF	{
 			|	IF if_head THEN statement_list ENDIF	{
 					fprintf(stderr, "IF THEN ENDIF detected\n");
 					char *last_not_printed_label = $2;
+					generate(0, NULL, NULL, NULL, NULL);
 					generate(1, last_not_printed_label, NULL, NULL, NULL);
 					add_label(last_not_printed_label);
 				}
@@ -364,22 +370,28 @@ condition:	expression cmp_condition expression	{
 				$$ = label_name;
 				switch($2) {
 					case 0:
-						generate(2, "JL", label_name, NULL, NULL);
-						break;
-					case 1:
-						generate(2, "JG", label_name, NULL, NULL);
-						break;
-					case 2:
-						generate(2, "JLE", label_name, NULL, NULL);
-						break;
-					case 3:
+						// !JL = JGE
 						generate(2, "JGE", label_name, NULL, NULL);
 						break;
+					case 1:
+						// !JG = JLE
+						generate(2, "JLE", label_name, NULL, NULL);
+						break;
+					case 2:
+						// !JLE = JG
+						generate(2, "JG", label_name, NULL, NULL);
+						break;
+					case 3:
+						// !JGE = JL
+						generate(2, "JL", label_name, NULL, NULL);
+						break;
 					case 4:
-						generate(2, "JE", label_name, NULL, NULL);
+						// !JE = JNE
+						generate(2, "JNE", label_name, NULL, NULL);
 						break;
 					case 5:
-						generate(2, "JNE", label_name, NULL, NULL);
+						// !JNE = JE
+						generate(2, "JE", label_name, NULL, NULL);
 						break;
 					default:
 						yyerror("Invalid comparison operand\n");
@@ -533,9 +545,11 @@ void generate(int length, char *instruction, char *name_1, char *name_2, char *n
 	int last_type = get_last_statement_list_type();
 	if(last_type == -1){
 		// Do not print out the instructions
-	}else if(length < 1 || length > 4){
-		yyerror("In generate: Generate function error, input length should between 1 and 4\n");
+	}else if(length < 0 || length > 4){
+		yyerror("In generate: Generate function error, input length should between 0 and 4\n");
 		exit(-1);
+	}else if(length == 0){
+		printf("\n");
 	}else if(length == 1){
 		// This is label
 		printf("%s:", instruction);
