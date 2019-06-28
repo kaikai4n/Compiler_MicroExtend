@@ -34,7 +34,7 @@ char *program_name;
 
 %token <symb> NAME;
 %token <vname> ARRAY_NAME ARRAY_VAR_NAME;
-%token <dval> NUMBER;
+%token <symb> NUMBER;
 %token <dint> TYPE;
 %token PROGRAM Begin End DECLARE AS ASSIGN_OP Exit PRINT;
 %token FOR ENDFOR TO DOWNTO;
@@ -53,6 +53,7 @@ char *program_name;
 start:	program Begin statement_list_origin End	{ 
 			fprintf(stderr, "Finish Program with name: %s\n", program_name); 
 			clean_up(0);
+			exit(0);
 		}
      ; 
 
@@ -87,15 +88,15 @@ statement:	declare_statement
 declare_statement: DECLARE v_list AS TYPE	{
 		for(int i = 0; i < my_vlist.total_num; i++){
 			if(my_vlist.table[i].array_num == -1){
-				generate(3, "Declare", my_vlist.table[i].name, num_to_type[$4-1], NULL);
-				new_symtab(my_vlist.table[i].name);
+				generate(3, "Declare", my_vlist.table[i].name, num_to_type[$4], NULL);
+				new_symtab(my_vlist.table[i].name, $4);
 			}else{
 				if(my_vlist.table[i].array_num < 2){
 					yyerror("Array size must > 1\n");
 					exit(-1);
 				}
 				char name_2[VAR_NAME_MAX];
-				sprintf(name_2, "%s_array", num_to_type[$4-1]);
+				sprintf(name_2, "%s_array", num_to_type[$4]);
 				char name_3[VAR_NAME_MAX];
 				sprintf(name_3, "%d", my_vlist.table[i].array_num);
 				generate(4, "Declare", my_vlist.table[i].name, name_2, name_3);
@@ -103,7 +104,7 @@ declare_statement: DECLARE v_list AS TYPE	{
 				char this_array_name[VAR_NAME_MAX];
 				for(int array_i = 0; array_i < my_vlist.table[i].array_num; array_i ++){
 					sprintf(this_array_name, "%s[%d]", my_vlist.table[i].name, array_i);
-					new_symtab(this_array_name);
+					new_symtab(this_array_name, $4);
 				}
 			}
 		}
@@ -129,25 +130,39 @@ v_name: ARRAY_NAME	{
 	  ;
 
 assign_statement:	name_or_array_name ASSIGN_OP expression	{
-						generate(3, "F_STORE", $3->name, $1->name, NULL);
-						$1->value = $3->value;
+						int type = $1->type;
+						if(type == 0){
+							generate(3, "I_STORE", $3->name, $1->name, NULL);
+							$1->value = (float) (int) $3->value;
+						}else{
+							generate(3, "F_STORE", $3->name, $1->name, NULL);
+							$1->value = $3->value;
+						}
 						free_register($3);
 					}
 				;
 
 expression:	expression '+' mul_expression	{
-					$$ = new_register();
+					int type = ($1->type || $3->type) ? 1 : 0;
+					$$ = new_register(type);
 					$$->value = $1->value + $3->value;
 					fprintf(stderr, "exp: exp + mul_exp\t%lf = %lf + %lf\n", $$->value, $1->value, $3->value);
-					generate(4, "F_ADD", $1->name, $3->name, $$->name);
+					if(type == 0)
+						generate(4, "I_ADD", $1->name, $3->name, $$->name);
+					else
+						generate(4, "F_ADD", $1->name, $3->name, $$->name);
 					free_register($1);
 					free_register($3);
 				}
 			  |	expression '-' mul_expression	{
-					$$ = new_register();
+					int type = ($1->type || $3->type) ? 1 : 0;
+					$$ = new_register(type);
 					$$->value = $1->value - $3->value;
 					fprintf(stderr, "exp: exp - mul_exp\t%lf = %lf - %lf\n", $$->value, $1->value, $3->value);
-					generate(4, "F_SUB", $1->name, $3->name, $$->name);
+					if(type == 0)
+						generate(4, "I_SUB", $1->name, $3->name, $$->name);
+					else
+						generate(4, "F_SUB", $1->name, $3->name, $$->name);
 					free_register($1);
 					free_register($3);
 				}
@@ -158,18 +173,26 @@ expression:	expression '+' mul_expression	{
 			  ;
 
 mul_expression:	mul_expression '*' primary	{
-					$$ = new_register();
+					int type = ($1->type || $3->type) ? 1 : 0;
+					$$ = new_register(type);
 					$$->value = $1->value * $3->value;
 					fprintf(stderr, "mul_exp: mul_exp * NUMBER\t%lf = %lf * %lf\n", $$->value, $1->value, $3->value);
-					generate(4, "F_MUL", $1->name, $3->name, $$->name);
+					if(type == 0)
+						generate(4, "I_MUL", $1->name, $3->name, $$->name);
+					else
+						generate(4, "F_MUL", $1->name, $3->name, $$->name);
 					free_register($1);
 					free_register($3);
 				}
 			  | mul_expression '/' primary	{
-					$$ = new_register();
-					$$->value = $1->value / $3->value;
+					int type = ($1->type || $3->type) ? 1 : 0;
+					$$ = new_register(type);
+					$$->value = (int) $1->value / (int) $3->value;
 					fprintf(stderr, "mul_exp: mul_exp / NUMBER\t%lf = %lf / %lf\n", $$->value, $1->value, $3->value);
-					generate(4, "F_DIV", $1->name, $3->name, $$->name);
+					if(type == 0)
+						generate(4, "I_DIV", $1->name, $3->name, $$->name);
+					else
+						generate(4, "F_DIV", $1->name, $3->name, $$->name);
 					free_register($1);
 					free_register($3);
 				}
@@ -180,18 +203,17 @@ mul_expression:	mul_expression '*' primary	{
 			  ;
 
 primary:	NUMBER	{
-			$$ = new_register();
-			$$->value = $1;
-			fprintf(stderr, "Declare a new register: %s and assign value: %lf\n", $$->name, $$->value);
-			char name_1[VAR_NAME_MAX];
-			sprintf(name_1, "%lf", $1);
-			generate(3, "F_STORE", name_1, $$->name, NULL);
+			$$ = $1;
 		}
 	   |	'-' primary	{
-			$$ = new_register();
+			int type = $2->type;
+			$$ = new_register(type);
 			$$->value = -$2->value;
 			fprintf(stderr, "primary: - primary\t%lf = %lf\n", $$->value, $2->value);
-			generate(3, "F_UMINUS", $2->name, $$->name, NULL);
+			if(type == 0)
+				generate(3, "I_UMINUS", $2->name, $$->name, NULL);
+			else
+				generate(3, "F_UMINUS", $2->name, $$->name, NULL);
 		}
 	   |	'(' expression ')'	{
 			$$ = $2;
@@ -214,7 +236,7 @@ name_or_array_name:	NAME	{
 						free($1->name);
 						free($1);
 						$$ = sp;
-						fprintf(stderr, "primary: NAME\n");
+						fprintf(stderr, "primary: NAME\t%s\n", $$->name);
 					}
 				  |	ARRAY_NAME	{
 						char this_array_name[VAR_NAME_MAX];
@@ -260,17 +282,18 @@ name_or_array_name:	NAME	{
 						char checked_var_name[VAR_NAME_MAX+10];
 						sprintf(checked_var_name, "%s[0]", $1->name);
 						if(check_symtab(checked_var_name) == NULL || check_symtab(&($1->name[lb])) == NULL){
-							if(check_symtab(&($1->name[lb])) == NULL)
-								fprintf(stderr, "Hello: %s\n", &($1->name[lb]));
 							// Variable reference before declaration
+							// for example LLL[I]
+							// The former is LLL not declared
+							// The latter is I not declared
 							char error_msg[1000];
 							sprintf(error_msg, "Variable %s reference before declaration\n", ori_name);
 							yyerror(error_msg);
 							exit(-1);
 						}
-						$$ = (struct symtab*) malloc(sizeof(struct symtab));
 						$$->name = ori_name;
 						$$->value = 0;
+						$$->type = check_symtab(checked_var_name)->type;
 					}
 				  ;
 
@@ -278,16 +301,21 @@ forloop_statement:	FOR for_head statement_list_origin ENDFOR	{
 						if($2->forloop_valid == 0){
 							// Do not print anything
 						}else{
+							char cmp_type[100];
+							if($2->cmp_type == 0)
+								sprintf(cmp_type, "I_CMP");
+							else
+								sprintf(cmp_type, "F_CMP");
 							char *last_forloop_label_name = $2->label_name;
 							if($2->to == 0){
 								// TO
 								generate(2, "INC", $2->l_exp_name, NULL, NULL);
-								generate(3, "F_CMP", $2->l_exp_name, $2->r_exp_name, NULL);
+								generate(3, cmp_type, $2->l_exp_name, $2->r_exp_name, NULL);
 								generate(2, "JL", last_forloop_label_name, NULL, NULL);
 							}else{
 								// DOWNTO
 								generate(2, "DEC", $2->l_exp_name, NULL, NULL);
-								generate(3, "F_CMP", $2->l_exp_name, $2->r_exp_name, NULL);
+								generate(3, cmp_type, $2->l_exp_name, $2->r_exp_name, NULL);
 								generate(2, "JG", last_forloop_label_name, NULL, NULL);
 							}
 						}
@@ -296,12 +324,19 @@ forloop_statement:	FOR for_head statement_list_origin ENDFOR	{
 				 ;
 
 for_head:	'(' name_or_array_name ASSIGN_OP expression to expression ')'	{
-				$2->value = $4->value;
-				generate(3, "F_STORE", $4->name, $2->name, NULL);
+				int type = $2->type;
+				if(type == 0){
+					$2->value = (int) $4->value;
+					generate(3, "I_STORE", $4->name, $2->name, NULL);
+				}else{
+					$2->value = $4->value;
+					generate(3, "F_STORE", $4->name, $2->name, NULL);
+				}
 				$$ = (struct forhead *) malloc(sizeof(struct forhead));
-				$$->l_exp_name = strdup($4->name);
+				$$->l_exp_name = strdup($2->name);
 				$$->r_exp_name = strdup($6->name);
 				$$->to = $5;
+				$$->cmp_type = (type || $6->type) ? 1 : 0;
 				if(($5 == 0 && $4->value >= $6->value) || ($5 == 1 && $4->value <= $6->value)){
 					// forloop condition not fulfilled
 					// skip the following statement_list
@@ -365,7 +400,11 @@ condition_statement:	condition	{
 				   ;
 
 condition:	expression cmp_condition expression	{
-				generate(3, "F_CMP", $1->name, $3->name, NULL);
+				int type = ($1->type || $3->type) ? 1 : 0;
+				if(type == 0)
+					generate(3, "I_CMP", $1->name, $3->name, NULL);
+				else
+					generate(3, "F_CMP", $1->name, $3->name, NULL);
 				char *label_name = new_label();
 				$$ = label_name;
 				switch($2) {
@@ -409,9 +448,14 @@ cmp_condition:	CMP_L	{$$ = 0;}
 			 ;
 
 print_statement:	PRINT '(' expression_list ')'	{
+					char msg_to_print[(VAR_NAME_MAX+2) * ($3->total)]; // include \0 and ','
+					msg_to_print[0] = '\0';
 					for(int i = 0; i < $3->total; i ++){
-						generate(3, "CALL", "print", $3->symtab[i]->name, NULL);
+						if(i != 0)
+							strcat(msg_to_print, ", ");
+						strcat(msg_to_print, $3->symtab[i]->name);
 					}
+					generate(3, "CALL", "print", msg_to_print, NULL);
 				}
 
 expression_list:	expression_list ',' expression	{
@@ -431,14 +475,18 @@ expression_list:	expression_list ',' expression	{
 			   ;
 
 exit_statement:	Exit '(' NUMBER ')'	{
-					clean_up($3);
+					clean_up((int)$3->value);
 					exit(0);
 				}
 			  ;
 %%
 
-struct symtab *new_symtab(char *s){
+struct symtab *new_symtab(char *s, int type){
 	struct symtab *sp;
+	if(type != 0 && type != 1){
+		yyerror("In new_symtab: Invalid type argument given\n");
+		exit(-1);
+	}
 	
 	for(sp = my_symtab; sp < &my_symtab[NSYMS]; sp++) {
 		if(sp->name && !strcmp(sp->name, s)){
@@ -450,6 +498,7 @@ struct symtab *new_symtab(char *s){
 		if(!sp->name) {
 			sp->name = strdup(s);
 			sp->value = 0;
+			sp->type = type;
 			return sp;
 		}
 	}
@@ -466,7 +515,7 @@ struct symtab* check_symtab(char *s){
 	return NULL;
 }
 
-struct symtab *new_register(){
+struct symtab *new_register(int type){
 	int free_register_index = 1;
 	for(; free_register_index < REGISTER_MAX+1; free_register_index ++){
 		if(register_status[free_register_index] == 0)
@@ -482,14 +531,14 @@ struct symtab *new_register(){
 		max_register = register_count;
 	char register_name[100+REGISTER_MAX];
 	sprintf(register_name, "T&%d", free_register_index);
-	struct symtab *sp = new_symtab(register_name);
+	struct symtab *sp = new_symtab(register_name, type);
 	return sp;
 }
 
 void free_symtab(struct symtab *tp){
 	struct symtab *sp;
 	for(sp = my_symtab; sp < &my_symtab[NSYMS]; sp++) {
-		if(sp->name != NULL && sp == tp){
+		if(sp->name != NULL && !strcmp(sp->name, tp->name)){
 			fprintf(stderr, "Free variable %s\n", sp->name);
 			free(sp->name);
 			sp->name = NULL;
@@ -503,7 +552,7 @@ void free_symtab(struct symtab *tp){
 void free_register(struct symtab *sp){
 	// clear unused register;
 	if(check_symtab(sp->name) == NULL){
-		// Might be something like LLL[I]
+		// Might be something like LLL[I], or NUMBER name
 		return;
 	}
 	if(sp->name[0] == 'T' && sp->name[1] == '&'){
@@ -571,6 +620,7 @@ void clean_up(int status){
 		fprintf(stderr, "Program ended\n");
 	}
 	generate(2, "HALT", program_name, NULL, NULL);
+	generate(0, NULL, NULL, NULL, NULL);
 	char this_register_name[100+REGISTER_MAX];
 	for(int reg_i = 1; reg_i <= max_register; reg_i ++){
 		sprintf(this_register_name, "T&%d", reg_i);
