@@ -1,0 +1,28 @@
+	START testP
+	Declare I, Integer
+	Declare J, Integer
+
+	I_MUL 100, J, T&1
+	I_STORE T&1, I
+	I_MUL 100, J, T&1
+	I_ADD T&1, 6, T&2
+	I_STORE 1, I
+lb&1:	CALL print, I
+	I_ADD I, 5, T&1
+	I_STORE T&1, I
+	I_CMP I, T&2
+	JL lb&1
+
+	I_MUL 2, J, T&1
+	I_STORE T&1, I
+lb&2:	CALL print, I
+	I_DEC I, 2, T&3
+	I_STORE T&3, I
+	I_CMP I, 1
+	JG lb&2
+
+	HALT testP
+
+	Declare T&1, Float
+	Declare T&2, Float
+	Declare T&3, Float

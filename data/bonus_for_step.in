@@ -1,0 +1,16 @@
+%%the beginning of an test data for Micro/Ex
+Program testP
+
+Begin
+	%% Declare variables
+	declare I, J as integer;
+	I := 100*J;
+	%% Start for loop with step 
+	FOR (I := 1 TO 100*J+6 STEP 5)
+		print(I);
+	ENDFOR
+	FOR (I := 2*J DOWNTO 1 STEP 2)
+		print(I);
+	ENDFOR
+End
+
