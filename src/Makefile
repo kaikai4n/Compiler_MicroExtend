@@ -12,7 +12,7 @@ y.tab.c: parser.y
 	yacc -d parser.y
 
 run:
-	./compiler
+	./compiler < ../data/testfile.micro 2> /dev/null
 
 clean:
 	rm lex.yy.c y.tab.c y.tab.h compiler 
