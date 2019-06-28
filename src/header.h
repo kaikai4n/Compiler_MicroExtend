@@ -34,6 +34,8 @@ struct forhead {
 							else (0) not fulfilled condition */
 	char *label_name;	/* The corresponding for loop header label name */
 	int cmp_type;		/* 0 is I_CMP, 1 is F_CMP */
+	struct symtab *step;
+	int type;
 } ;
 
 struct exp_list {
