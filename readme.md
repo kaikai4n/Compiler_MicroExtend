@@ -64,7 +64,7 @@ The compiler should generate the assembly code:
 Note that ``T&[number]`` is free register.
 
 ## For Loop Statement
-- FOR (var := expression to expression) statement_list ENDFOR
+- FOR (var := expression to expression \[STEP number\] ) statement_list ENDFOR
 	- expression: returns a variable name or number in literal
 	- statement_list: a sequence of statements including all the statements.
 	- to: TO (increment by 1) or DOWNTO (decrease by 1)
@@ -113,3 +113,10 @@ lb&3:
 ## Comments
 - ``%%`` to comment one line
 - ``%{ comments }%`` to comment multiple lines
+
+## Extra function
+### Support Step of for loop
+### Support nested IF statement 
+### Support nested for loop statement
+### Filter out some loop that will never happen when runtime
+### Reuse unused registers
