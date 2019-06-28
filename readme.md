@@ -118,5 +118,4 @@ lb&3:
 ### Support Step of for loop
 ### Support nested IF statement 
 ### Support nested for loop statement
-### Filter out some loop that will never happen when runtime
 ### Reuse unused registers
