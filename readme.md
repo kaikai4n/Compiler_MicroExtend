@@ -1,15 +1,6 @@
 Compiler Micro/Ex
 ===
 
-# Environment
-- mac OS
-- bison (GNU Bison) 2.3
-- flex 2.5.35 Apple(flex-31)
-- gcc version
-	- Configured with: --prefix=/Library/Developer/CommandLineTools/usr --with-gxx-include-dir=/usr/include/c++/4.2.1
-	- Apple LLVM version 10.0.0 (clang-1000.10.44.4)
-	- Target: x86\_64-apple-darwin17.7.0
-	- Thread model: posix
 
 # How to run
 - Change directory into ``src``
@@ -114,8 +105,24 @@ lb&3:
 - ``%%`` to comment one line
 - ``%{ comments }%`` to comment multiple lines
 
-## Extra function
-### Support Step of for loop
-### Support nested IF statement 
-### Support nested for loop statement
-### Reuse unused registers
+## Extra functions
+- Support Step of for loop
+	- for for\_head step \[number\]
+	- number can be float type
+- Support nested IF statement 
+- Support nested for loop statement
+- Reuse unused registers
+	- When a register is used as temporary memory, it is freed after the temporary use is finished.
+- Check Invalid usage of variables
+	- reference before declaration
+	- array bound exceed
+
+# Environment
+- mac OS
+- bison (GNU Bison) 2.3
+- flex 2.5.35 Apple(flex-31)
+- gcc version
+	- Configured with: --prefix=/Library/Developer/CommandLineTools/usr --with-gxx-include-dir=/usr/include/c++/4.2.1
+	- Apple LLVM version 10.0.0 (clang-1000.10.44.4)
+	- Target: x86\_64-apple-darwin17.7.0
+	- Thread model: posix
